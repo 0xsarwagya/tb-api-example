@@ -4,26 +4,57 @@ import { MILLISECONDS_PER_DAY } from "../src/utils/constants";
 
 async function fetchSpecificKeys() {
   const host = process.env.TB_HOST || "demo.thingsboard.io";
-  const username = process.env.TB_USERNAME || "YOUR_USERNAME";
-  const password = process.env.TB_PASSWORD || "YOUR_PASSWORD";
-  const deviceId = process.env.TB_DEVICE_ID || "YOUR_DEVICE_ID";
+  const username = process.env.TB_USERNAME;
+  const password = process.env.TB_PASSWORD;
+  const jwtToken = process.env.TB_JWT_TOKEN;
+  const deviceId = process.env.TB_DEVICE_ID;
 
-  if (username === "YOUR_USERNAME" || password === "YOUR_PASSWORD") {
-    console.error("Please set TB_USERNAME and TB_PASSWORD environment variables");
+  const useJwtToken = !!jwtToken;
+  const useUsernamePassword = !!username && !!password;
+
+  if (!useJwtToken && !useUsernamePassword) {
+    console.error("❌ Authentication required!");
+    console.error("\nPlease provide one of the following:");
+    console.error("  Option 1: TB_USERNAME and TB_PASSWORD (recommended)");
+    console.error("  Option 2: TB_JWT_TOKEN (pre-authenticated JWT token)");
+    console.error("\n⚠️  Note: TB_ACCESS_TOKEN (device access token) cannot be used for REST API.");
+    console.error("   Device access tokens are only for HTTP Device API (publishing data).");
+    console.error("   REST API (fetching data) requires user credentials.");
+    console.error("\nAlso set TB_DEVICE_ID to specify which device to fetch from.");
     process.exit(1);
   }
 
-  if (deviceId === "YOUR_DEVICE_ID") {
-    console.error("Please set TB_DEVICE_ID environment variable");
+  if (!deviceId) {
+    console.error("❌ Please set TB_DEVICE_ID environment variable");
     process.exit(1);
   }
 
-  const client = new ThingsBoardRestClient({
-    host,
-    username,
-    password,
-    useHttps: true,
-  });
+  const useHttpsEnv = process.env.TB_USE_HTTPS;
+  const useHttps =
+    useHttpsEnv === "true" ||
+    (useHttpsEnv !== "false" &&
+      !host.includes("localhost") &&
+      !host.includes("127.0.0.1") &&
+      !host.includes("ec2-"));
+
+  let client: ThingsBoardRestClient;
+
+  if (useJwtToken) {
+    console.log("🔑 Using JWT token authentication");
+    client = new ThingsBoardRestClient({
+      host,
+      jwtToken: jwtToken!,
+      useHttps,
+    });
+  } else {
+    console.log("🔑 Using username/password authentication");
+    client = new ThingsBoardRestClient({
+      host,
+      username: username!,
+      password: password!,
+      useHttps,
+    });
+  }
 
   const csvParser = new CsvParser(",", true);
 
@@ -54,6 +85,10 @@ async function fetchSpecificKeys() {
   ];
 
   try {
+    console.log(`\n📡 Connecting to: ${host}`);
+    console.log(`📱 Device ID: ${deviceId}`);
+    console.log(`🔒 Protocol: ${useHttps ? "HTTPS" : "HTTP"}\n`);
+
     console.log("Fetching telemetry data for specific keys...");
     const endTs = Date.now();
     const daysToFetch = 30;

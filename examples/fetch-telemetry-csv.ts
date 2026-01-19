@@ -7,20 +7,37 @@ async function fetchAndExportToCsv() {
   const username = process.env.TB_USERNAME;
   const password = process.env.TB_PASSWORD;
   const jwtToken = process.env.TB_JWT_TOKEN;
+  const deviceAccessToken = process.env.TB_ACCESS_TOKEN;
   const deviceId = process.env.TB_DEVICE_ID;
 
   const useJwtToken = !!jwtToken;
+  const useDeviceAccessToken = !!deviceAccessToken;
   const useUsernamePassword = !!username && !!password;
 
-  if (!useJwtToken && !useUsernamePassword) {
+  if (!useJwtToken && !useUsernamePassword && !useDeviceAccessToken) {
     console.error("❌ Authentication required!");
     console.error("\nPlease provide one of the following:");
-    console.error("  Option 1: TB_USERNAME and TB_PASSWORD");
+    console.error("  Option 1: TB_USERNAME and TB_PASSWORD (recommended)");
     console.error("  Option 2: TB_JWT_TOKEN (pre-authenticated JWT token)");
+    console.error("\n⚠️  Note: TB_ACCESS_TOKEN (device access token) cannot be used for REST API.");
+    console.error("   Device access tokens are only for HTTP Device API (publishing data).");
+    console.error("   REST API (fetching data) requires user credentials.");
     console.error("\nAlso set TB_DEVICE_ID to specify which device to fetch from.");
     console.error("\nExample:");
-    console.error("  TB_HOST=your-host TB_USERNAME=user TB_PASSWORD=pass TB_DEVICE_ID=device-id bun run fetch-csv");
-    console.error("  TB_HOST=your-host TB_JWT_TOKEN=your-jwt-token TB_DEVICE_ID=device-id bun run fetch-csv");
+    console.error("  TB_HOST=host TB_USERNAME=user TB_PASSWORD=pass TB_DEVICE_ID=device-id bun run fetch-csv");
+    console.error("  TB_HOST=host TB_JWT_TOKEN=token TB_DEVICE_ID=device-id bun run fetch-csv");
+    process.exit(1);
+  }
+
+  if (useDeviceAccessToken) {
+    console.error("❌ Device access tokens cannot be used with REST API!");
+    console.error("\nDevice access tokens (TB_ACCESS_TOKEN) are only for:");
+    console.error("  - HTTP Device API: Publishing telemetry/attributes");
+    console.error("  - MQTT Device API: Device connections");
+    console.error("\nREST API (for fetching telemetry) requires:");
+    console.error("  - TB_USERNAME and TB_PASSWORD, OR");
+    console.error("  - TB_JWT_TOKEN (obtained from username/password login)");
+    console.error("\nPlease use username/password or JWT token instead.");
     process.exit(1);
   }
 
@@ -31,9 +48,11 @@ async function fetchAndExportToCsv() {
 
   const useHttpsEnv = process.env.TB_USE_HTTPS;
   const useHttps =
-    useHttpsEnv !== undefined
-      ? useHttpsEnv === "true" || useHttpsEnv === "1"
-      : !host.includes("localhost") && !host.includes("127.0.0.1");
+    useHttpsEnv === "true" ||
+    (useHttpsEnv !== "false" &&
+      !host.includes("localhost") &&
+      !host.includes("127.0.0.1") &&
+      !host.includes("ec2-"));
 
   let client: ThingsBoardRestClient;
 
@@ -57,6 +76,10 @@ async function fetchAndExportToCsv() {
   const csvParser = new CsvParser(",", true);
 
   try {
+    console.log(`\n📡 Connecting to: ${host}`);
+    console.log(`📱 Device ID: ${deviceId}`);
+    console.log(`🔒 Protocol: ${useHttps ? "HTTPS" : "HTTP"}\n`);
+
     console.log("Fetching telemetry keys...");
     const keys = await client.getTelemetryKeys("DEVICE", deviceId);
     console.log(`✓ Found ${keys.length} telemetry keys:`, keys.join(", "));
