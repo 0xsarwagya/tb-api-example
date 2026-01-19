@@ -29,7 +29,11 @@ async function fetchAndExportToCsv() {
     process.exit(1);
   }
 
-  const useHttps = !host.includes("localhost") && !host.includes("127.0.0.1");
+  const useHttpsEnv = process.env.TB_USE_HTTPS;
+  const useHttps =
+    useHttpsEnv !== undefined
+      ? useHttpsEnv === "true" || useHttpsEnv === "1"
+      : !host.includes("localhost") && !host.includes("127.0.0.1");
 
   let client: ThingsBoardRestClient;
 
