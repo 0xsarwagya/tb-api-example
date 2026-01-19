@@ -1,0 +1,20 @@
+{
+  "name": "tb-example",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run examples/basic-example.ts",
+    "rpc": "bun run examples/rpc-example.ts",
+    "subscribe": "bun run examples/attributes-subscribe-example.ts",
+    "fetch-csv": "bun run examples/fetch-telemetry-csv.ts",
+    "fetch-keys": "bun run examples/fetch-specific-keys.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.0.9"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
