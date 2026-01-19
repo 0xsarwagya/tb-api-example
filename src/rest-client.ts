@@ -12,8 +12,8 @@ const TOKEN_FIELD = "token";
 
 export class ThingsBoardRestClient {
   private readonly baseUrl: string;
-  private readonly username: string;
-  private readonly password: string;
+  private readonly username?: string;
+  private readonly password?: string;
   private jwtToken: string | null = null;
 
   constructor(config: RestApiClientConfig) {
@@ -21,6 +21,10 @@ export class ThingsBoardRestClient {
     this.baseUrl = `${protocol}://${config.host}`;
     this.username = config.username;
     this.password = config.password;
+    
+    if (config.jwtToken) {
+      this.jwtToken = config.jwtToken;
+    }
   }
 
   private buildAuthUrl(): string {
@@ -41,9 +45,19 @@ export class ThingsBoardRestClient {
     return data.token;
   }
 
+  private hasCredentials(): boolean {
+    return !!this.username && !!this.password;
+  }
+
   private async authenticate(): Promise<string> {
     if (this.jwtToken) {
       return this.jwtToken;
+    }
+
+    if (!this.hasCredentials()) {
+      throw new Error(
+        "Authentication required: provide either username/password or jwtToken"
+      );
     }
 
     const response = await fetch(this.buildAuthUrl(), {
@@ -154,6 +168,9 @@ export class ThingsBoardRestClient {
   }
 
   logout(): void {
+    if (!this.username && !this.password) {
+      return;
+    }
     this.jwtToken = null;
   }
 }

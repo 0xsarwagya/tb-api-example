@@ -85,8 +85,9 @@ export interface FetchTelemetryOptions {
 
 export interface RestApiClientConfig {
   host: string;
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
+  jwtToken?: string;
   useHttps?: boolean;
 }
 
