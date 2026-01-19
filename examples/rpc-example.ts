@@ -9,10 +9,18 @@ async function rpcExample() {
     process.exit(1);
   }
 
+  const useHttpsEnv = process.env.TB_USE_HTTPS;
+  const useHttps =
+    useHttpsEnv === "true" ||
+    (useHttpsEnv !== "false" &&
+      !host.includes("localhost") &&
+      !host.includes("127.0.0.1") &&
+      !host.includes("ec2-"));
+
   const client = new ThingsBoardClient({
     host,
     accessToken,
-    useHttps: true,
+    useHttps,
   });
 
   try {

@@ -88,6 +88,7 @@ export interface RestApiClientConfig {
   username?: string;
   password?: string;
   jwtToken?: string;
+  deviceAccessToken?: string;
   useHttps?: boolean;
 }
 

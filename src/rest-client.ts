@@ -14,6 +14,7 @@ export class ThingsBoardRestClient {
   private readonly baseUrl: string;
   private readonly username?: string;
   private readonly password?: string;
+  private readonly deviceAccessToken?: string;
   private jwtToken: string | null = null;
 
   constructor(config: RestApiClientConfig) {
@@ -21,6 +22,7 @@ export class ThingsBoardRestClient {
     this.baseUrl = `${protocol}://${config.host}`;
     this.username = config.username;
     this.password = config.password;
+    this.deviceAccessToken = config.deviceAccessToken;
     
     if (config.jwtToken) {
       this.jwtToken = config.jwtToken;
@@ -49,14 +51,28 @@ export class ThingsBoardRestClient {
     return !!this.username && !!this.password;
   }
 
+  private usesDeviceAccessToken(): boolean {
+    return !!this.deviceAccessToken;
+  }
+
   private async authenticate(): Promise<string> {
     if (this.jwtToken) {
       return this.jwtToken;
     }
 
+    if (this.usesDeviceAccessToken()) {
+      throw new Error(
+        "Device access tokens are not supported for REST API. " +
+        "REST API requires user authentication (username/password or JWT token). " +
+        "Device access tokens are only for HTTP Device API (/api/v1/{accessToken}/...). " +
+        "Please use TB_USERNAME/TB_PASSWORD or TB_JWT_TOKEN instead."
+      );
+    }
+
     if (!this.hasCredentials()) {
       throw new Error(
-        "Authentication required: provide either username/password or jwtToken"
+        "Authentication required: provide username/password or jwtToken. " +
+        "Device access tokens cannot be used with REST API."
       );
     }
 
@@ -78,6 +94,9 @@ export class ThingsBoardRestClient {
   }
 
   private buildAuthHeader(token: string): string {
+    if (this.usesDeviceAccessToken()) {
+      return token;
+    }
     return `Bearer ${token}`;
   }
 
@@ -85,13 +104,20 @@ export class ThingsBoardRestClient {
     const token = await this.authenticate();
     const url = `${this.baseUrl}${endpoint}`;
 
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+
+    if (this.usesDeviceAccessToken()) {
+      headers["X-Authorization"] = token;
+    } else {
+      headers["X-Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Authorization": this.buildAuthHeader(token),
-        ...options.headers,
-      },
+      headers,
     });
 
     if (!response.ok) {
